@@ -1,4 +1,4 @@
-name: Beryllium Kernel Build (Clang)
+name: Beryllium Kernel Build (TEN - Clang Stable)
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ jobs:
     steps:
 
     # =========================
-    # Checkout
+    # Checkout repo
     # =========================
     - name: Checkout
       uses: actions/checkout@v4
@@ -31,25 +31,34 @@ jobs:
         sudo apt install -y git curl wget zip unzip build-essential bc bison flex libssl-dev libncurses5-dev python3
 
     # =========================
-    # Clone Kernel (TEN)
+    # Clone kernel (TEN branch)
     # =========================
     - name: Clone Kernel
       run: |
         git clone --depth=1 -b ten https://github.com/PainKiller3/android_kernel_xiaomi_sdm845.git kernel
 
     # =========================
-    # Setup Clang (Neutron/Proton style LLVM 17)
+    # Setup Clang (FIXED SAFE VERSION)
     # =========================
     - name: Setup Clang
       run: |
-        mkdir clang
+        rm -rf clang
+        mkdir -p clang
         cd clang
 
-        wget -q https://github.com/ClangBuiltLinux/tc-build/releases/download/llvm-17.0.0/clang+llvm.tar.xz
-        tar -xf clang+llvm.tar.xz
+        echo "Downloading Clang..."
+
+        wget -q https://github.com/ClangBuiltLinux/tc-build/releases/download/llvm-17.0.0/clang+llvm.tar.xz -O clang.tar.xz
+
+        if [ ! -f clang.tar.xz ]; then
+          echo "Clang download FAILED"
+          exit 1
+        fi
+
+        tar -xf clang.tar.xz
 
         echo "CLANG_PATH=$PWD" >> $GITHUB_ENV
-        echo "PATH=$PWD/bin:$PATH" >> $GITHUB_ENV
+        echo "$PWD/bin" >> $GITHUB_PATH
 
     # =========================
     # Build Kernel
@@ -63,15 +72,4 @@ jobs:
         export CC=clang
         export CLANG_TRIPLE=aarch64-linux-gnu-
 
-        make beryllium_defconfig
-
-        make -j$(nproc) LLVM=1 LLVM_IAS=1 V=1 2>&1 | tee build.log
-
-    # =========================
-    # AnyKernel3 pack
-    # =========================
-    - name: Pack AnyKernel3
-      run: |
-        git clone https://github.com/osm0sis/AnyKernel3.git anykernel
-
-        cp kernel/arch/arm64/boot/Image* anykernel/ 2>/dev/null || true
+        make
