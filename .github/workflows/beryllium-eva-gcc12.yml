@@ -72,4 +72,30 @@ jobs:
         export CC=clang
         export CLANG_TRIPLE=aarch64-linux-gnu-
 
-        make
+        make beryllium_defconfig
+
+        make -j$(nproc) LLVM=1 LLVM_IAS=1 V=1 2>&1 | tee build.log
+
+    # =========================
+    # Pack AnyKernel3
+    # =========================
+    - name: Pack AnyKernel3
+      run: |
+        git clone https://github.com/osm0sis/AnyKernel3.git anykernel
+
+        cp kernel/arch/arm64/boot/Image* anykernel/ 2>/dev/null || true
+        cp kernel/arch/arm64/boot/dtb* anykernel/ 2>/dev/null || true
+
+        cd anykernel
+        zip -r9 ../Beryllium-CLANG-TEN.zip *
+
+    # =========================
+    # Upload result
+    # =========================
+    - name: Upload Kernel
+      uses: actions/upload-artifact@v4
+      with:
+        name: beryllium-kernel
+        path: |
+          Beryllium-CLANG-TEN.zip
+          kernel/build.log
