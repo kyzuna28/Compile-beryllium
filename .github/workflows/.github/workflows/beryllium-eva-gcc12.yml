@@ -1,0 +1,91 @@
+name: Beryllium Kernel Build (EVA GCC 12 - TEN)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      KERNEL_DIR: kernel
+      ARCH: arm64
+      SUBARCH: arm64
+      DEFCONFIG: beryllium_defconfig
+      ZIP_NAME: Beryllium-EVA-GCC12-TEN
+
+    steps:
+
+    # =========================
+    # Checkout workflow repo
+    # =========================
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    # =========================
+    # Install dependencies
+    # =========================
+    - name: Install packages
+      run: |
+        sudo apt update
+        sudo apt install -y git curl wget zip unzip build-essential bc bison flex libssl-dev libncurses5-dev python3
+
+    # =========================
+    # Clone kernel (BRANCH TEN)
+    # =========================
+    - name: Clone Kernel Source
+      run: |
+        git clone --depth=1 -b ten https://github.com/PainKiller3/android_kernel_xiaomi_sdm845.git $KERNEL_DIR
+
+    # =========================
+    # Setup EVA GCC 12
+    # =========================
+    - name: Setup EVA GCC 12
+      run: |
+        mkdir gcc
+        cd gcc
+
+        wget -q https://github.com/AmirulDevil/EVAGCC/releases/download/12.2.0/EVA-GCC-12.tar.xz
+        tar -xf EVA-GCC-12.tar.xz
+
+        echo "GCC_PATH=$PWD" >> $GITHUB_ENV
+
+    # =========================
+    # Build Kernel
+    # =========================
+    - name: Build Kernel
+      run: |
+        cd $KERNEL_DIR
+
+        export ARCH=arm64
+        export SUBARCH=arm64
+        export CROSS_COMPILE=$GCC_PATH/bin/aarch64-linux-gnu-
+        export CROSS_COMPILE_ARM32=$GCC_PATH/bin/arm-linux-gnueabi-
+
+        make $DEFCONFIG
+
+        make -j$(nproc) 2>&1 | tee build.log
+
+    # =========================
+    # AnyKernel3 pack
+    # =========================
+    - name: Pack AnyKernel3
+      run: |
+        git clone https://github.com/osm0sis/AnyKernel3.git anykernel
+
+        cp $KERNEL_DIR/arch/arm64/boot/Image* anykernel/ 2>/dev/null || true
+        cp $KERNEL_DIR/arch/arm64/boot/dtb* anykernel/ 2>/dev/null || true
+
+        cd anykernel
+        zip -r9 ../$ZIP_NAME.zip * -x .git README.md
+
+    # =========================
+    # Upload result
+    # =========================
+    - name: Upload Kernel
+      uses: actions/upload-artifact@v4
+      with:
+        name: beryllium-eva-gcc12-ten
+        path: |
+          Beryllium-EVA-GCC12-TEN.zip
+          kernel/build.log
