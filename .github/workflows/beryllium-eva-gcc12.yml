@@ -2,6 +2,9 @@ name: Beryllium Kernel Build (EVA GCC 12 - TEN)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
