@@ -1,101 +1,19 @@
-name: Beryllium Kernel Build (TEN - Clang Stable)
-
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-
+version: 2.1
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    env:
-      ARCH: arm64
-      SUBARCH: arm64
-
+  compile:
+    docker:
+      - image: sandatjepil/build:jammy
     steps:
-
-    # =========================
-    # Checkout repo
-    # =========================
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    # =========================
-    # Dependencies
-    # =========================
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y git curl wget zip unzip build-essential bc bison flex libssl-dev libncurses5-dev python3
-
-    # =========================
-    # Clone kernel (TEN branch)
-    # =========================
-    - name: Clone Kernel
-      run: |
-        git clone --depth=1 -b ten https://github.com/PainKiller3/android_kernel_xiaomi_sdm845.git kernel
-
-    # =========================
-    # Setup Clang (FIXED SAFE VERSION)
-    # =========================
-    - name: Setup Clang
-      run: |
-        rm -rf clang
-        mkdir -p clang
-        cd clang
-
-        echo "Downloading Clang..."
-
-        wget -q https://github.com/ClangBuiltLinux/tc-build/releases/download/llvm-17.0.0/clang+llvm.tar.xz -O clang.tar.xz
-
-        if [ ! -f clang.tar.xz ]; then
-          echo "Clang download FAILED"
-          exit 1
-        fi
-
-        tar -xf clang.tar.xz
-
-        echo "CLANG_PATH=$PWD" >> $GITHUB_ENV
-        echo "$PWD/bin" >> $GITHUB_PATH
-
-    # =========================
-    # Build Kernel
-    # =========================
-    - name: Build Kernel
-      run: |
-        cd kernel
-
-        export ARCH=arm64
-        export SUBARCH=arm64
-        export CC=clang
-        export CLANG_TRIPLE=aarch64-linux-gnu-
-
-        make beryllium_defconfig
-
-        make -j$(nproc) LLVM=1 LLVM_IAS=1 V=1 2>&1 | tee build.log
-
-    # =========================
-    # Pack AnyKernel3
-    # =========================
-    - name: Pack AnyKernel3
-      run: |
-        git clone https://github.com/osm0sis/AnyKernel3.git anykernel
-
-        cp kernel/arch/arm64/boot/Image* anykernel/ 2>/dev/null || true
-        cp kernel/arch/arm64/boot/dtb* anykernel/ 2>/dev/null || true
-
-        cd anykernel
-        zip -r9 ../Beryllium-CLANG-TEN.zip *
-
-    # =========================
-    # Upload result
-    # =========================
-    - name: Upload Kernel
-      uses: actions/upload-artifact@v4
-      with:
-        name: beryllium-kernel
-        path: |
-          Beryllium-CLANG-TEN.zip
-          kernel/build.log
+      - checkout
+      - run:
+          name: Kernel 4.4.x
+          shell: /bin/bash
+          command: |
+            git clone -qb zeus --recursive --depth 85 https://github.com/PurrrsLitterbox/x00td_kernel_4.4.git kernel
+            bash build.sh
+          no_output_timeout : 1h
+workflows:
+  version: 2.1
+  cooking:
+    jobs:
+      - compile
